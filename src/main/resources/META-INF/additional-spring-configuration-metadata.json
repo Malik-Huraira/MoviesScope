@@ -1,0 +1,22 @@
+{"properties": [
+  {
+    "name": "tmdb.api.key",
+    "type": "java.lang.String",
+    "description": "A description for 'tmdb.api.key'"
+  },
+  {
+    "name": "tmdb.api.base-url",
+    "type": "java.lang.String",
+    "description": "A description for 'tmdb.api.base-url'"
+  },
+  {
+    "name": "tmdb.api.base-url-popular",
+    "type": "java.lang.String",
+    "description": "A description for 'tmdb.api.base-url-popular'"
+  },
+  {
+    "name": "tmdb.api.base-url-keyword",
+    "type": "java.lang.String",
+    "description": "A description for 'tmdb.api.base-url-keyword'"
+  }
+]}
