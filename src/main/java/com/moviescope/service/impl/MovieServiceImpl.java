@@ -2,6 +2,7 @@ package com.moviescope.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moviescope.dto.response.MovieAnalyticsResponse;
 import com.moviescope.dto.response.MovieDTO;
 import com.moviescope.entity.MovieEntity;
 import com.moviescope.repository.MovieRepository;
@@ -283,28 +284,36 @@ public class MovieServiceImpl implements MovieService {
     }
 
     // Fixed: Proper generic types in return
-    @Override
-    public Map<String, Object> getMovieAnalytics() {
-        List<MovieEntity> allMovies = movieRepository.findAll();
-        Map<String, Object> analytics = new HashMap<>();
-
-        analytics.put("totalMovies", allMovies.size());
-        analytics.put("averageRating", allMovies.stream()
-                .mapToDouble(MovieEntity::getRating)
-                .average().orElse(0.0));
-
-        // Fixed: Proper generic types
-        Map<String, Long> moviesPerGenre = allMovies.stream()
-                .flatMap(m -> Arrays.stream(Optional.ofNullable(m.getGenres())
-                        .orElse("").split(",")))
-                .filter(genre -> !genre.trim().isEmpty())
-                .collect(Collectors.groupingBy(
-                        genre -> genre.trim(),
-                        Collectors.counting()));
-
-        analytics.put("moviesPerGenre", moviesPerGenre);
-        return analytics;
-    }
+   // Update the getMovieAnalytics method
+@Override
+public MovieAnalyticsResponse getMovieAnalytics() {
+    List<MovieEntity> allMovies = movieRepository.findAll();
+    
+    // Calculate basic analytics
+    double averageRating = allMovies.stream()
+            .mapToDouble(MovieEntity::getRating)
+            .average().orElse(0.0);
+    
+    Map<String, Long> moviesPerGenre = allMovies.stream()
+            .flatMap(m -> Arrays.stream(Optional.ofNullable(m.getGenres())
+                    .orElse("").split(",")))
+            .filter(genre -> !genre.trim().isEmpty())
+            .collect(Collectors.groupingBy(
+                    genre -> genre.trim(),
+                    Collectors.counting()));
+    
+    // You might want to inject repositories to get user analytics
+    // For now, we'll return basic analytics
+    
+    return MovieAnalyticsResponse.builder()
+            .totalMovies(allMovies.size())
+            .averageRating(Math.round(averageRating * 10.0) / 10.0)
+            .moviesPerGenre(moviesPerGenre)
+            .totalFavorites(0L) // You can calculate this from UserFavoriteRepository
+            .totalReviews(0L)   // You can calculate this from MovieReviewRepository
+            .totalRatings(0L)   // You can calculate this from UserRatingRepository
+            .build();
+}
 
     /**
      * Convert MovieEntity to DTO
