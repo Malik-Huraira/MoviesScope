@@ -250,20 +250,20 @@ public class MovieServiceImpl implements MovieService {
         return movies;
     }
 
-    // Fixed: Proper parameter types
     private List<MovieDTO> combineResults(List<MovieDTO> local, List<MovieDTO> tmdb) {
-        // Use a Set to avoid duplicates based on movie ID
         Map<Integer, MovieDTO> uniqueMovies = new LinkedHashMap<>();
 
+        // Use movie ID instead of title hash
         for (MovieDTO movie : local) {
-            // Assuming you have getId() method in MovieDTO, you might need to add it
-            // uniqueMovies.put(movie.getId(), movie);
-            // For now, using title as key (not ideal but works for demo)
-            uniqueMovies.put(movie.getTitle().hashCode(), movie);
+            if (movie.getId() != null) {
+                uniqueMovies.put(movie.getId(), movie);
+            }
         }
 
         for (MovieDTO movie : tmdb) {
-            uniqueMovies.putIfAbsent(movie.getTitle().hashCode(), movie);
+            if (movie.getId() != null) {
+                uniqueMovies.putIfAbsent(movie.getId(), movie);
+            }
         }
 
         return new ArrayList<>(uniqueMovies.values());

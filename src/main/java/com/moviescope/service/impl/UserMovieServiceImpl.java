@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class UserMovieServiceImpl implements UserMovieService {
 
     private final UserFavoriteRepository userFavoriteRepository;
+    private final MovieRepository movieRepository;
     private final UserRatingRepository userRatingRepository;
     private final MovieReviewRepository movieReviewRepository;
     private final UserRepository userRepository;
@@ -34,9 +35,24 @@ public class UserMovieServiceImpl implements UserMovieService {
     @Override
     @Transactional
     public FavoriteResponse addToFavorites(Long userId, Integer movieId) {
-        // Validate user and movie
-        userService.getUserEntity(userId);
-        movieService.fetchMovieEntity(movieId); // This will fetch from TMDB if not exists
+        if (userId == null || movieId == null) {
+            throw new IllegalArgumentException("User ID and Movie ID cannot be null");
+        }
+
+        // Validate user exists
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        // Get or create movie entity
+        MovieEntity movieEntity = movieRepository.findById(movieId)
+                .orElseGet(() -> {
+                    MovieEntity newEntity = movieService.fetchMovieEntity(movieId);
+                    return newEntity != null ? movieRepository.save(newEntity) : null;
+                });
+
+        if (movieEntity == null) {
+            throw new RuntimeException("Movie not found with id: " + movieId);
+        }
 
         // Check if already favorited
         if (userFavoriteRepository.existsByUserIdAndMovieId(userId, movieId)) {
@@ -48,8 +64,8 @@ public class UserMovieServiceImpl implements UserMovieService {
         }
 
         UserFavorite favorite = UserFavorite.builder()
-                .user(userRepository.getReferenceById(userId))
-                .movie(movieService.fetchMovieEntity(movieId))
+                .user(user)
+                .movie(movieEntity)
                 .build();
 
         userFavoriteRepository.save(favorite);

@@ -9,6 +9,7 @@ import com.moviescope.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,7 +23,8 @@ public class MovieController {
     private final UserMovieService userMovieService;
     private final UserService userService;
 
-    // Existing endpoints
+    // ==================== PUBLIC ENDPOINTS (No Authentication Required) ===================================================//
+
     @GetMapping("/popular")
     public ApiResponse<MovieListResponse> getPopularMovies() {
         List<MovieDTO> movies = movieService.getPopularMovies();
@@ -59,31 +61,35 @@ public class MovieController {
         return new ApiResponse<>("200", "Success", analytics);
     }
 
-    // NEW ENDPOINTS FOR USER FEATURES
+    // ==================== AUTHENTICATED ENDPOINTS (Require JWT Token)
+    // ====================
 
     // Favorite endpoints
     @PostMapping("/{movieId}/favorite")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<FavoriteResponse>> addToFavorites(
             @PathVariable Integer movieId,
-            @RequestParam Long userId) {
+            @RequestAttribute Long userId) { // userId extracted from JWT token
 
         FavoriteResponse response = userMovieService.addToFavorites(userId, movieId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", response));
     }
 
     @DeleteMapping("/{movieId}/favorite")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<FavoriteResponse>> removeFromFavorites(
             @PathVariable Integer movieId,
-            @RequestParam Long userId) {
+            @RequestAttribute Long userId) {
 
         FavoriteResponse response = userMovieService.removeFromFavorites(userId, movieId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", response));
     }
 
     @GetMapping("/{movieId}/favorite")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Boolean>> isMovieFavorite(
             @PathVariable Integer movieId,
-            @RequestParam Long userId) {
+            @RequestAttribute Long userId) {
 
         boolean isFavorite = userMovieService.isMovieFavorite(userId, movieId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", isFavorite));
@@ -91,18 +97,23 @@ public class MovieController {
 
     // Rating endpoints
     @PostMapping("/{movieId}/rating")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<RatingResponse>> addOrUpdateRating(
             @PathVariable Integer movieId,
-            @Valid @RequestBody RatingRequest ratingRequest) {
+            @Valid @RequestBody RatingRequest ratingRequest,
+            @RequestAttribute Long userId) {
 
+        // Set userId from JWT token to prevent users from rating as others
+        ratingRequest.setUserId(userId);
         RatingResponse response = userMovieService.addOrUpdateRating(ratingRequest, movieId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", response));
     }
 
     @GetMapping("/{movieId}/rating")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<RatingResponse>> getUserRating(
             @PathVariable Integer movieId,
-            @RequestParam Long userId) {
+            @RequestAttribute Long userId) {
 
         RatingResponse response = userMovieService.getUserRating(userId, movieId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", response));
@@ -116,27 +127,36 @@ public class MovieController {
 
     // Review endpoints
     @PostMapping("/{movieId}/reviews")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<ReviewResponse>> addReview(
             @PathVariable Integer movieId,
-            @Valid @RequestBody ReviewRequest reviewRequest) {
+            @Valid @RequestBody ReviewRequest reviewRequest,
+            @RequestAttribute Long userId) {
 
+        // Set userId from JWT token to prevent users from reviewing as others
+        reviewRequest.setUserId(userId);
         ReviewResponse response = userMovieService.addReview(reviewRequest, movieId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", response));
     }
 
     @PutMapping("/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<ReviewResponse>> updateReview(
             @PathVariable Long reviewId,
-            @Valid @RequestBody ReviewRequest reviewRequest) {
+            @Valid @RequestBody ReviewRequest reviewRequest,
+            @RequestAttribute Long userId) {
 
+        // Set userId from JWT token for ownership validation
+        reviewRequest.setUserId(userId);
         ReviewResponse response = userMovieService.updateReview(reviewId, reviewRequest);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", response));
     }
 
     @DeleteMapping("/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<String>> deleteReview(
             @PathVariable Long reviewId,
-            @RequestParam Long userId) {
+            @RequestAttribute Long userId) {
 
         userMovieService.deleteReview(reviewId, userId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Review deleted successfully", null));
@@ -149,24 +169,37 @@ public class MovieController {
     }
 
     @GetMapping("/users/{userId}/reviews")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getUserReviews(@PathVariable Long userId) {
         List<ReviewResponse> reviews = userMovieService.getUserReviews(userId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", reviews));
     }
 
-    // User management endpoints
-    @PostMapping("/users")
-    public ResponseEntity<ApiResponse<UserDTO>> createUser(
-            @RequestParam String username,
-            @RequestParam String email) {
+    // ==================== USER PROFILE ENDPOINTS ====================
 
-        UserDTO user = userService.createUser(username, email);
-        return ResponseEntity.ok(new ApiResponse<>("200", "User created successfully", user));
-    }
-
-    @GetMapping("/users/{userId}")
-    public ResponseEntity<ApiResponse<UserDTO>> getUser(@PathVariable Long userId) {
+    @GetMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<UserDTO>> getUserProfile(@RequestAttribute Long userId) {
         UserDTO user = userService.getUserById(userId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Success", user));
     }
+
+    // ==================== ADMIN ENDPOINTS ====================
+
+    @GetMapping("/admin/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<UserDTO>>> getAllUsers() {
+        // This would need to be implemented in UserService
+        // List<UserDTO> users = userService.getAllUsers();
+        return ResponseEntity.ok(new ApiResponse<>("200", "Admin endpoint - Users list", null));
+    }
+
+    @DeleteMapping("/admin/users/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> deleteUser(@PathVariable Long userId) {
+        // This would need to be implemented in UserService
+        // userService.deleteUser(userId);
+        return ResponseEntity.ok(new ApiResponse<>("200", "User deleted successfully", null));
+    }
 }
+

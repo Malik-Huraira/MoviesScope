@@ -33,4 +33,7 @@ public class MovieDTO {
 
     private Boolean favorite;
     private Double userRating;
+
+    public MovieDTO() {
+    }
 }

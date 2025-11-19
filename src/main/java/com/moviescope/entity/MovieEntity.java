@@ -35,7 +35,7 @@ public class MovieEntity {
     @Builder.Default
     private Double userRating = 0.0;
 
-    // Relationships with @Builder.Default
+    
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<UserFavorite> favorites = new ArrayList<>();

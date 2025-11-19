@@ -2,6 +2,7 @@ package com.moviescope.exception;
 
 import com.moviescope.dto.response.ApiResponse;
 
+import java.nio.file.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,4 +38,17 @@ public class GlobalExceptionHandler {
                 .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
         return new ApiResponse<>("400", "Validation failed", errors);
     }
+
+    @ExceptionHandler(RuntimeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<String> handleRuntimeException(RuntimeException e) {
+        return new ApiResponse<>("400", e.getMessage(), null);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<String> handleAccessDeniedException(AccessDeniedException e) {
+        return new ApiResponse<>("403", "Access denied", null);
+    }
+
 }
