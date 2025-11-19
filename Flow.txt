@@ -1,0 +1,230 @@
+ **ARCHITECTURE OVERVIEW**
+
+
+Frontend/Postman → Controllers → Services → Repositories → Database
+      ↓              ↓             ↓           ↓             ↓
+   (React)      (REST API)   (Business Logic) (Data Access) (MySQL)
+
+---
+
+## 🔗 **ENTITY RELATIONSHIP DIAGRAM**
+
+### **Database Tables & Relationships:**
+```
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│    UserEntity   │      │   MovieEntity    │      │  MovieReview    │
+├─────────────────┤      ├──────────────────┤      ├─────────────────┤
+│ id (PK)         │1    *│ id (PK)          │1    *│ id (PK)         │
+│ username        │──────│ title            │──────│ user_id (FK)    │
+│ email           │      │ overview         │      │ movie_id (FK)   │
+│ password        │      │ releaseDate      │      │ reviewText      │
+│ role            │      │ genres           │      │ createdAt       │
+└─────────────────┘      │ runtime          │      │ updatedAt       │
+         │               │ rating           │      └─────────────────┘
+         │               └──────────────────┘               │
+         │                          │                       │
+         │*                         │*                      │
+         │                          │                       │
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│  UserFavorite   │      │   UserRating     │      │                 │
+├─────────────────┤      ├──────────────────┤      │  (TMDB API)     │
+│ id (PK)         │      │ id (PK)          │      │                 │
+│ user_id (FK)    │      │ user_id (FK)     │      │ External Movie  │
+│ movie_id (FK)   │      │ movie_id (FK)    │      │ Data Source     │
+│ addedAt         │      │ rating           │      │                 │
+└─────────────────┘      │ ratedAt          │      └─────────────────┘
+                         └──────────────────┘
+```
+
+---
+
+## 🎯 **CONTROLLER LAYER RELATIONSHIPS**
+
+### **AuthController:**
+```
+AuthController → AuthService → UserRepository → UserEntity
+       ↓
+JWT Token Generation/Validation
+```
+
+### **MovieController:**
+```
+MovieController → MovieService → MovieRepository → MovieEntity
+       ↓              ↓
+UserMovieService → UserFavoriteRepository → UserFavorite
+       ↓              ↓
+UserRatingRepository → UserRating
+       ↓              ↓
+MovieReviewRepository → MovieReview
+       ↓
+UserService → UserRepository → UserEntity
+```
+
+---
+
+## 🔐 **SECURITY RELATIONSHIPS**
+
+### **JWT Authentication Flow:**
+```
+HTTP Request → JwtAuthenticationFilter → JwtUtil
+       ↓              ↓
+CustomUserDetailsService → UserRepository
+       ↓
+SecurityContext (Authentication)
+       ↓
+@PreAuthorize → Controller Methods
+```
+
+---
+
+## 🛠 **SERVICE LAYER RELATIONSHIPS**
+
+### **Service Dependencies:**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│   AuthService   │    │  MovieService   │    │ UserMovieService │
+├─────────────────┤    ├─────────────────┤    ├──────────────────┤
+│ - jwtUtil       │    │ - restTemplate  │    │ - userFavoriteRepo│
+│ - passwordEncoder│   │ - tmdbConstants │    │ - userRatingRepo │
+│ - userRepository │   │ - movieRepository│    │ - movieReviewRepo│
+└─────────────────┘    └─────────────────┘    │ - userRepository │
+         │                    │               │ - movieService   │
+         ↓                    ↓               │ - userService    │
+┌─────────────────┐    ┌─────────────────┐    └──────────────────┘
+│ UserRepository  │    │ MovieRepository │             │
+└─────────────────┘    └─────────────────┘             ↓
+                                      ┌────────────────────────────┐
+                                      │        UserService         │
+                                      ├────────────────────────────│
+                                      │ - userRepository           │
+                                      └────────────────────────────┘
+```
+
+---
+
+## 📦 **DEPENDENCY INJECTION FLOW**
+
+### **Spring Bean Dependencies:**
+```java
+// Controllers
+AuthController ───→ AuthService
+MovieController ──→ MovieService + UserMovieService + UserService
+
+// Services  
+AuthService ──────→ AuthenticationManager + JwtUtil + PasswordEncoder + UserRepository
+MovieService ─────→ RestTemplate + TMDBApiConstants + MovieRepository
+UserMovieService ─→ UserFavoriteRepository + UserRatingRepository + 
+                    MovieReviewRepository + UserRepository + MovieService + UserService
+UserService ──────→ UserRepository
+
+// Security
+SecurityConfig ───→ JwtAuthenticationFilter
+JwtAuthenticationFilter ─→ JwtUtil + CustomUserDetailsService
+CustomUserDetailsService ─→ UserRepository
+```
+
+---
+
+## 🔄 **DATA FLOW RELATIONSHIPS**
+
+### **User Registration Flow:**
+```
+Postman → AuthController → AuthService → UserRepository → Database
+    ↓          ↓              ↓             ↓              ↓
+ HTTP     Validate      Hash Password   Save User     Store User
+Request     Input                         Entity        Record
+```
+
+### **Movie Search Flow:**
+```
+Postman → MovieController → MovieService → TMDB API → MovieRepository → Database
+    ↓          ↓              ↓             ↓             ↓              ↓
+ HTTP     Return JSON    Fetch from     Get Movie    Save to DB     Cache Movie
+Request     Response      TMDB API        Data                      for later
+```
+
+### **Add Favorite Flow:**
+```
+Postman → MovieController → UserMovieService → UserFavoriteRepository → Database
+    ↓          ↓              ↓                   ↓                     ↓
+ HTTP     Extract User    Business Logic      Create Favorite      Save Relation
+Request      from JWT      Validation           Record
+```
+
+---
+
+## 🎬 **EXTERNAL DEPENDENCIES**
+
+### **Third-Party Services:**
+```
+MovieScope Application ───→ TMDB API (The Movie Database)
+          ↓
+          MySQL Database
+          ↓
+          JWT Tokens (io.jsonwebtoken)
+          ↓
+          Spring Security
+          ↓  
+          Spring Data JPA
+```
+
+---
+
+## 🔗 **REST API ENDPOINT RELATIONSHIPS**
+
+### **Authentication Endpoints:**
+```
+/api/auth
+    ├── /register → AuthController.registerUser()
+    ├── /login → AuthController.authenticateUser()  
+    └── /validate → AuthController.validateToken()
+```
+
+### **Movie Endpoints:**
+```
+/api/movies
+    ├── /popular → MovieController.getPopularMovies() (Public)
+    ├── /search → MovieController.searchMovies() (Public)
+    ├── /{movieId} → MovieController.getMovieDetails() (Public)
+    ├── /keyword/{keywordId}/movies → (Public)
+    ├── /analytics → (Public)
+    │
+    ├── /{movieId}/favorite → (Authenticated)
+    ├── /{movieId}/rating → (Authenticated)
+    ├── /{movieId}/reviews → (Authenticated)
+    │
+    ├── /profile → MovieController.getUserProfile() (Authenticated)
+    ├── /users/{userId}/reviews → (Authenticated)
+    │
+    └── /admin/users → (Admin Only)
+```
+
+---
+
+## 🛡 **SECURITY RELATIONSHIPS**
+
+### **Access Control:**
+```
+Public Endpoints ←─┐
+                   │
+Authenticated Endpoints ←─ JWT Token Validation ←─ CustomUserDetailsService
+                   │
+Admin Endpoints ←──┴── Role-based Authorization
+
+
+
+## 📊 **CLASS RELATIONSHIP SUMMARY**
+
+### **Main Relationships:**
+- **One-to-Many**: User → Favorites, User → Ratings, User → Reviews
+- **One-to-Many**: Movie → Favorites, Movie → Ratings, Movie → Reviews  
+- **Many-to-Many**: Users ↔ Movies (through Favorites/Ratings/Reviews)
+- **Service Dependencies**: Controllers → Services → Repositories
+- **Security Chain**: Filter → JWT Util → UserDetailsService → Database
+
+### **Key Points:**
+1. **User** can have multiple **Favorites**, **Ratings**, and **Reviews**
+2. **Movie** can have multiple **Favorites**, **Ratings**, and **Reviews** from different users
+3. **Services** handle business logic and coordinate between repositories
+4. **Controllers** handle HTTP requests and responses
+5. **Security** layer protects endpoints and manages authentication
