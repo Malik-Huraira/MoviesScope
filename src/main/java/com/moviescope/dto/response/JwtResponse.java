@@ -18,4 +18,8 @@ public class JwtResponse {
     private String username;
     private String email;
     private UserRole role;
+    private String phoneNumber;
+    private String dateOfBirth;
+
+    private String encryptedUserId;
 }

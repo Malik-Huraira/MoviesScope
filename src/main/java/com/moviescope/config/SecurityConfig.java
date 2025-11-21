@@ -39,6 +39,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/movies/{movieId}/average-rating").permitAll()
                         .requestMatchers("/api/movies/{movieId}/reviews").permitAll()
                         .requestMatchers("/api/movies/analytics").permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
+                        .requestMatchers("/api/debug/**").permitAll()
                         // Authenticated endpoints
                         .requestMatchers(HttpMethod.POST, "/api/movies/*/favorite").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/movies/*/favorite").authenticated()
@@ -50,7 +52,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/movies/reviews/*").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/movies/users/*/reviews").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/movies/profile").authenticated()
-                        
+
                         // Admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
@@ -65,4 +67,5 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
+
 }

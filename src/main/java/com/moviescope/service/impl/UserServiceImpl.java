@@ -3,20 +3,23 @@ package com.moviescope.service.impl;
 import com.moviescope.dto.response.UserDTO;
 import com.moviescope.entity.UserEntity;
 import com.moviescope.repository.UserRepository;
+import com.moviescope.service.EncryptionService;
 import com.moviescope.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+
 
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final EncryptionService encryptionService; 
 
     @Override
     @Transactional
-    public UserDTO createUser(String username, String email) {
+    public UserDTO createUser(String username, String email, String phoneNumber, String dateOfBirth) {
         if (userRepository.existsByUsername(username)) {
             throw new RuntimeException("Username already exists");
         }
@@ -27,6 +30,9 @@ public class UserServiceImpl implements UserService {
         UserEntity user = UserEntity.builder()
                 .username(username)
                 .email(email)
+                .phoneNumber(phoneNumber) // Will be encrypted
+                .dateOfBirth(dateOfBirth) // Will be encrypted
+
                 .build();
 
         UserEntity savedUser = userRepository.save(user);
@@ -55,6 +61,12 @@ public class UserServiceImpl implements UserService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber()) // Automatically decrypted
+                .dateOfBirth(user.getDateOfBirth()) // Automatically decrypted
                 .build();
+    }
+    
+    public String getEncryptedUserId(Long userId) {
+        return encryptionService.encryptUserId(userId);
     }
 }

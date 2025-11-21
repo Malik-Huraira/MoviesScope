@@ -6,6 +6,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.moviescope.utils.EncryptionUtil;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -26,7 +28,7 @@ public class UserEntity implements UserDetails {
     private String username;
 
     @Column(unique = true, nullable = false)
-    private String email;
+    private String email; // will be encrypted
 
     @Column(nullable = false)
     private String password;
@@ -35,6 +37,12 @@ public class UserEntity implements UserDetails {
     @Column(nullable = false)
     @Builder.Default
     private UserRole role = UserRole.ROLE_USER;
+
+    @Column(name = "phone_number")
+    private String phoneNumber; // will be encrypted
+
+    @Column(name = "date_of_birth")
+    private String dateOfBirth; //will be encrypted
 
     @Builder.Default
     private Boolean enabled = true;
@@ -86,4 +94,5 @@ public class UserEntity implements UserDetails {
     public boolean isEnabled() {
         return enabled;
     }
+
 }

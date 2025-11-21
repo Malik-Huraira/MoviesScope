@@ -5,6 +5,8 @@ import com.moviescope.dto.request.RegisterRequest;
 import com.moviescope.dto.response.ApiResponse;
 import com.moviescope.dto.response.JwtResponse;
 import com.moviescope.service.AuthService;
+import com.moviescope.service.EncryptionService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,10 +18,13 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final EncryptionService encryptionService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<JwtResponse>> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         JwtResponse response = authService.authenticateUser(loginRequest);
+        String encryptedUserId = encryptionService.encryptUserId(response.getUserId());
+        response.setEncryptedUserId(encryptedUserId);
         return ResponseEntity.ok(new ApiResponse<>("200", "Login successful", response));
     }
 
@@ -37,4 +42,5 @@ public class AuthController {
         authService.validateToken(token);
         return ResponseEntity.ok(new ApiResponse<>("200", "Token is valid", null));
     }
+
 }
