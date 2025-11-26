@@ -22,6 +22,7 @@ public class EncryptionUtil {
 
     @PostConstruct
     public void init() {
+        System.out.println("Actual Secret Key Value = " + secretKey);
         System.out.println("=== ENCRYPTION UTIL INITIALIZED ===");
         System.out.println("Secret Key: " + (secretKey != null ? "***LOADED***" : "NULL"));
         System.out.println("Key Length: " + (secretKey != null ? secretKey.length() : "N/A"));
