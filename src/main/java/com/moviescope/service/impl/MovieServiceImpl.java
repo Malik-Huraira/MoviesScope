@@ -8,6 +8,8 @@ import com.moviescope.entity.MovieEntity;
 import com.moviescope.repository.MovieRepository;
 import com.moviescope.service.MovieService;
 import com.moviescope.utils.TMDBApiConstants;
+
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -41,6 +43,7 @@ public class MovieServiceImpl implements MovieService {
      */
     @Override
     @Transactional
+    @Cacheable(value = "movies", key = "'popularMovies'")
     public List<MovieDTO> getPopularMovies() {
         List<MovieDTO> movies = new ArrayList<>();
 
@@ -86,6 +89,7 @@ public class MovieServiceImpl implements MovieService {
      */
     @Override
     @Transactional
+    @Cacheable(value = "movies", key = "'keywordMovies_' + #keywordId + '_' + #fetchDetails")
     public List<MovieDTO> getMoviesByKeyword(int keywordId, boolean fetchDetails) {
         List<MovieDTO> movies = new ArrayList<>();
 
@@ -202,6 +206,7 @@ public class MovieServiceImpl implements MovieService {
     // Search movies by query (local DB + TMDB)
 
     @Override
+    @Cacheable(value = "movies", key = "'searchMovies_' + #query")
     public List<MovieDTO> searchMovies(String query) {
         // First search local database
         List<MovieDTO> localResults = searchMoviesByTitle(query);
@@ -284,36 +289,36 @@ public class MovieServiceImpl implements MovieService {
     }
 
     // Fixed: Proper generic types in return
-   // Update the getMovieAnalytics method
-@Override
-public MovieAnalyticsResponse getMovieAnalytics() {
-    List<MovieEntity> allMovies = movieRepository.findAll();
-    
-    // Calculate basic analytics
-    double averageRating = allMovies.stream()
-            .mapToDouble(MovieEntity::getRating)
-            .average().orElse(0.0);
-    
-    Map<String, Long> moviesPerGenre = allMovies.stream()
-            .flatMap(m -> Arrays.stream(Optional.ofNullable(m.getGenres())
-                    .orElse("").split(",")))
-            .filter(genre -> !genre.trim().isEmpty())
-            .collect(Collectors.groupingBy(
-                    genre -> genre.trim(),
-                    Collectors.counting()));
-    
-    // You might want to inject repositories to get user analytics
-    // For now, we'll return basic analytics
-    
-    return MovieAnalyticsResponse.builder()
-            .totalMovies(allMovies.size())
-            .averageRating(Math.round(averageRating * 10.0) / 10.0)
-            .moviesPerGenre(moviesPerGenre)
-            .totalFavorites(0L) // You can calculate this from UserFavoriteRepository
-            .totalReviews(0L)   // You can calculate this from MovieReviewRepository
-            .totalRatings(0L)   // You can calculate this from UserRatingRepository
-            .build();
-}
+    // Update the getMovieAnalytics method
+    @Override
+    public MovieAnalyticsResponse getMovieAnalytics() {
+        List<MovieEntity> allMovies = movieRepository.findAll();
+
+        // Calculate basic analytics
+        double averageRating = allMovies.stream()
+                .mapToDouble(MovieEntity::getRating)
+                .average().orElse(0.0);
+
+        Map<String, Long> moviesPerGenre = allMovies.stream()
+                .flatMap(m -> Arrays.stream(Optional.ofNullable(m.getGenres())
+                        .orElse("").split(",")))
+                .filter(genre -> !genre.trim().isEmpty())
+                .collect(Collectors.groupingBy(
+                        genre -> genre.trim(),
+                        Collectors.counting()));
+
+        // You might want to inject repositories to get user analytics
+        // For now, we'll return basic analytics
+
+        return MovieAnalyticsResponse.builder()
+                .totalMovies(allMovies.size())
+                .averageRating(Math.round(averageRating * 10.0) / 10.0)
+                .moviesPerGenre(moviesPerGenre)
+                .totalFavorites(0L) // You can calculate this from UserFavoriteRepository
+                .totalReviews(0L) // You can calculate this from MovieReviewRepository
+                .totalRatings(0L) // You can calculate this from UserRatingRepository
+                .build();
+    }
 
     /**
      * Convert MovieEntity to DTO

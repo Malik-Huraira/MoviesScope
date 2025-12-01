@@ -1,6 +1,5 @@
 package com.moviescope.controller;
 
-import com.moviescope.service.EncryptionService;
 import com.moviescope.utils.EncryptionUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -11,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 public class TestEncryptionController {
 
     private final EncryptionUtil encryptionUtil;
-    private final EncryptionService encryptionService;
+
 
     @GetMapping("/encrypt/{data}")
     public String testEncryption(@PathVariable String data) {
