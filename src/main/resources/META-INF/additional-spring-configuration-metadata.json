@@ -48,5 +48,110 @@
     "name": "spring.cache.ehcache.config",
     "type": "java.lang.String",
     "description": "A description for 'spring.cache.ehcache.config'"
+  },
+  {
+    "name": "hazelcast.logging.type",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.logging.type'"
+  },
+  {
+    "name": "hazelcast.phone.home.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.phone.home.enabled'"
+  },
+  {
+    "name": "cache.movies.ttl",
+    "type": "java.lang.String",
+    "description": "A description for 'cache.movies.ttl'"
+  },
+  {
+    "name": "hazelcast.mancenter.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.mancenter.enabled'"
+  },
+  {
+    "name": "hazelcast.instance.name",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.instance.name'"
+  },
+  {
+    "name": "hazelcast.network.port",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.network.port'"
+  },
+  {
+    "name": "hazelcast.network.port-auto-increment",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.network.port-auto-increment'"
+  },
+  {
+    "name": "hazelcast.network.join.multicast.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.network.join.multicast.enabled'"
+  },
+  {
+    "name": "hazelcast.map.movies-cache.time-to-live-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.movies-cache.time-to-live-seconds'"
+  },
+  {
+    "name": "hazelcast.map.movies-cache.max-idle-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.movies-cache.max-idle-seconds'"
+  },
+  {
+    "name": "hazelcast.map.movies-cache.eviction-policy",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.movies-cache.eviction-policy'"
+  },
+  {
+    "name": "hazelcast.map.movies-cache.max-size-policy",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.movies-cache.max-size-policy'"
+  },
+  {
+    "name": "hazelcast.map.movies-cache.size",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.movies-cache.size'"
+  },
+  {
+    "name": "hazelcast.map.popular-movies-cache.time-to-live-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.popular-movies-cache.time-to-live-seconds'"
+  },
+  {
+    "name": "hazelcast.map.keyword-movies-cache.time-to-live-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.keyword-movies-cache.time-to-live-seconds'"
+  },
+  {
+    "name": "hazelcast.map.popular-movies-cache.max-idle-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.popular-movies-cache.max-idle-seconds'"
+  },
+  {
+    "name": "hazelcast.map.search-cache.time-to-live-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.search-cache.time-to-live-seconds'"
+  },
+  {
+    "name": "hazelcast.map.search-cache.max-idle-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.search-cache.max-idle-seconds'"
+  },
+  {
+    "name": "hazelcast.map.analytics-cache.max-idle-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.analytics-cache.max-idle-seconds'"
+  },
+  {
+    "name": "hazelcast.map.analytics-cache.time-to-live-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.analytics-cache.time-to-live-seconds'"
+  },
+  {
+    "name": "hazelcast.map.keyword-movies-cache.max-idle-seconds",
+    "type": "java.lang.String",
+    "description": "A description for 'hazelcast.map.keyword-movies-cache.max-idle-seconds'"
   }
 ]}

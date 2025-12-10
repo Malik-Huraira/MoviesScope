@@ -17,4 +17,5 @@ public class MovieAnalyticsResponse {
     private long totalFavorites;
     private long totalReviews;
     private long totalRatings;
+    private Long cachedMoviesCount;
 }

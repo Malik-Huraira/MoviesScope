@@ -7,8 +7,10 @@ import com.moviescope.dto.response.MovieDTO;
 import com.moviescope.entity.MovieEntity;
 import com.moviescope.repository.MovieRepository;
 import com.moviescope.service.MovieService;
+import com.moviescope.service.cache.MovieCacheService;
 import com.moviescope.utils.TMDBApiConstants;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,15 +27,18 @@ public class MovieServiceImpl implements MovieService {
     private final RestTemplate restTemplate;
     private final TMDBApiConstants tmdbApiConstants;
     private final MovieRepository movieRepository;
+    private final MovieCacheService cacheService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public MovieServiceImpl(
             RestTemplate restTemplate,
             TMDBApiConstants tmdbApiConstants,
-            MovieRepository movieRepository) {
+            MovieRepository movieRepository,
+            MovieCacheService cacheService) {
         this.restTemplate = restTemplate;
         this.tmdbApiConstants = tmdbApiConstants;
         this.movieRepository = movieRepository;
+        this.cacheService = cacheService;
     }
 
     // GET POPULAR MOVIES
@@ -43,7 +48,7 @@ public class MovieServiceImpl implements MovieService {
      */
     @Override
     @Transactional
-    @Cacheable(value = "movies", key = "'popularMovies'")
+    @Cacheable(value = "popularMovies", key = "'all'")
     public List<MovieDTO> getPopularMovies() {
         List<MovieDTO> movies = new ArrayList<>();
 
@@ -63,16 +68,30 @@ public class MovieServiceImpl implements MovieService {
                 for (JsonNode node : results) {
                     int movieId = node.path("id").asInt();
 
+                    // Check cache first
+                    MovieDTO cachedMovie = (MovieDTO) cacheService.getCachedMovieDetails(movieId);
+                    if (cachedMovie != null) {
+                        movies.add(cachedMovie);
+                        continue;
+                    }
+
                     // Check if movie exists in DB
                     MovieEntity movieEntity = movieRepository.findById(movieId).orElseGet(() -> {
                         MovieEntity entity = fetchMovieEntity(movieId);
-                        if (entity != null)
+                        if (entity != null) {
                             movieRepository.save(entity);
+                            // Cache the movie details
+                            cacheService.cacheMovieDetails(movieId, toDTO(entity));
+                        }
                         return entity;
                     });
 
-                    if (movieEntity != null)
-                        movies.add(toDTO(movieEntity));
+                    if (movieEntity != null) {
+                        MovieDTO movieDTO = toDTO(movieEntity);
+                        movies.add(movieDTO);
+                        // Cache movie details
+                        cacheService.cacheMovieDetails(movieId, movieDTO);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -89,7 +108,7 @@ public class MovieServiceImpl implements MovieService {
      */
     @Override
     @Transactional
-    @Cacheable(value = "movies", key = "'keywordMovies_' + #keywordId + '_' + #fetchDetails")
+    @Cacheable(value = "keywordMovies", key = "#keywordId + '_' + #fetchDetails")
     public List<MovieDTO> getMoviesByKeyword(int keywordId, boolean fetchDetails) {
         List<MovieDTO> movies = new ArrayList<>();
 
@@ -110,22 +129,39 @@ public class MovieServiceImpl implements MovieService {
                 JsonNode results = root.path("results");
 
                 if (page == 1) {
-                    totalPages = Math.min(root.path("total_pages").asInt(), 5); // max 5 pages
+                    totalPages = Math.min(root.path("total_pages").asInt(), 5);
                 }
 
                 if (fetchDetails) {
                     List<CompletableFuture<MovieDTO>> futures = new ArrayList<>();
                     for (JsonNode node : results) {
                         int movieId = node.path("id").asInt();
+
+                        // Check cache first
+                        if (cacheService.isMovieCached(movieId)) {
+                            MovieDTO cachedMovie = (MovieDTO) cacheService.getCachedMovieDetails(movieId);
+                            if (cachedMovie != null) {
+                                movies.add(cachedMovie);
+                                continue;
+                            }
+                        }
+
                         futures.add(CompletableFuture.supplyAsync(() -> {
                             MovieEntity entity = movieRepository.findById(movieId)
                                     .orElseGet(() -> {
                                         MovieEntity newEntity = fetchMovieEntity(movieId);
-                                        if (newEntity != null)
+                                        if (newEntity != null) {
                                             movieRepository.save(newEntity);
+                                            cacheService.cacheMovieDetails(movieId, toDTO(newEntity));
+                                        }
                                         return newEntity;
                                     });
-                            return entity != null ? toDTO(entity) : null;
+                            if (entity != null) {
+                                MovieDTO dto = toDTO(entity);
+                                cacheService.cacheMovieDetails(movieId, dto);
+                                return dto;
+                            }
+                            return null;
                         }));
                     }
                     movies.addAll(futures.stream()
@@ -136,6 +172,7 @@ public class MovieServiceImpl implements MovieService {
                     // Summary info only
                     for (JsonNode node : results) {
                         movies.add(MovieDTO.builder()
+                                .id(node.path("id").asInt())
                                 .title(node.path("title").asText())
                                 .overview(node.path("overview").asText())
                                 .releaseDate(node.path("release_date").asText())
@@ -160,6 +197,7 @@ public class MovieServiceImpl implements MovieService {
     // Simple overload
 
     @Override
+    @Cacheable(value = "keywordMovies", key = "#keywordId")
     public List<MovieDTO> getMoviesByKeyword(int keywordId) {
         return getMoviesByKeyword(keywordId, true);
     }
@@ -169,6 +207,8 @@ public class MovieServiceImpl implements MovieService {
     /**
      * Fetch detailed info from TMDb and convert to MovieEntity
      */
+    @Override
+    @Transactional
     public MovieEntity fetchMovieEntity(int movieId) {
         try {
             String movieUrl = UriComponentsBuilder
@@ -206,7 +246,7 @@ public class MovieServiceImpl implements MovieService {
     // Search movies by query (local DB + TMDB)
 
     @Override
-    @Cacheable(value = "movies", key = "'searchMovies_' + #query")
+    @Cacheable(value = "searchResults", key = "#query")
     public List<MovieDTO> searchMovies(String query) {
         // First search local database
         List<MovieDTO> localResults = searchMoviesByTitle(query);
@@ -218,7 +258,6 @@ public class MovieServiceImpl implements MovieService {
         return combineResults(localResults, tmdbResults);
     }
 
-    // Fixed: Proper return type
     private List<MovieDTO> searchMoviesFromTMDB(String query) {
         List<MovieDTO> movies = new ArrayList<>();
 
@@ -237,15 +276,28 @@ public class MovieServiceImpl implements MovieService {
             for (JsonNode node : results) {
                 int movieId = node.path("id").asInt();
 
+                // Check cache first
+                if (cacheService.isMovieCached(movieId)) {
+                    MovieDTO cachedMovie = (MovieDTO) cacheService.getCachedMovieDetails(movieId);
+                    if (cachedMovie != null) {
+                        movies.add(cachedMovie);
+                        continue;
+                    }
+                }
+
                 MovieEntity movieEntity = movieRepository.findById(movieId).orElseGet(() -> {
                     MovieEntity entity = fetchMovieEntity(movieId);
-                    if (entity != null)
+                    if (entity != null) {
                         movieRepository.save(entity);
+                        cacheService.cacheMovieDetails(movieId, toDTO(entity));
+                    }
                     return entity;
                 });
 
                 if (movieEntity != null) {
-                    movies.add(toDTO(movieEntity));
+                    MovieDTO dto = toDTO(movieEntity);
+                    movies.add(dto);
+                    cacheService.cacheMovieDetails(movieId, dto);
                 }
             }
         } catch (Exception e) {
@@ -258,7 +310,6 @@ public class MovieServiceImpl implements MovieService {
     private List<MovieDTO> combineResults(List<MovieDTO> local, List<MovieDTO> tmdb) {
         Map<Integer, MovieDTO> uniqueMovies = new LinkedHashMap<>();
 
-        // Use movie ID instead of title hash
         for (MovieDTO movie : local) {
             if (movie.getId() != null) {
                 uniqueMovies.put(movie.getId(), movie);
@@ -274,24 +325,45 @@ public class MovieServiceImpl implements MovieService {
         return new ArrayList<>(uniqueMovies.values());
     }
 
-    // Fixed: Proper return type
+    // Get movie details with caching
     @Override
+    @Cacheable(value = "movieDetails", key = "#movieId")
     public MovieDTO getMovieDetails(int movieId) {
+        // Check cache service first
+        MovieDTO cachedMovie = (MovieDTO) cacheService.getCachedMovieDetails(movieId);
+        if (cachedMovie != null) {
+            return cachedMovie;
+        }
+
         MovieEntity movieEntity = movieRepository.findById(movieId)
                 .orElseGet(() -> {
                     MovieEntity newEntity = fetchMovieEntity(movieId);
-                    if (newEntity != null)
+                    if (newEntity != null) {
                         movieRepository.save(newEntity);
+                    }
                     return newEntity;
                 });
 
-        return movieEntity != null ? toDTO(movieEntity) : null;
+        if (movieEntity != null) {
+            MovieDTO dto = toDTO(movieEntity);
+            // Cache in both Spring Cache and Hazelcast
+            cacheService.cacheMovieDetails(movieId, dto);
+            return dto;
+        }
+
+        return null;
     }
 
-    // Fixed: Proper generic types in return
-    // Update the getMovieAnalytics method
+    // Get movie analytics
     @Override
+    @Cacheable(value = "analytics", key = "'all'")
     public MovieAnalyticsResponse getMovieAnalytics() {
+        // Check cache service first
+        MovieAnalyticsResponse cachedAnalytics = (MovieAnalyticsResponse) cacheService.getCachedAnalytics();
+        if (cachedAnalytics != null) {
+            return cachedAnalytics;
+        }
+
         List<MovieEntity> allMovies = movieRepository.findAll();
 
         // Calculate basic analytics
@@ -307,17 +379,29 @@ public class MovieServiceImpl implements MovieService {
                         genre -> genre.trim(),
                         Collectors.counting()));
 
-        // You might want to inject repositories to get user analytics
-        // For now, we'll return basic analytics
+        // Calculate favorites from cache or database
+        long totalFavorites = allMovies.stream()
+                .filter(movie -> movie.getFavorite() != null && movie.getFavorite())
+                .count();
 
-        return MovieAnalyticsResponse.builder()
+        long totalRatings = allMovies.stream()
+                .filter(movie -> movie.getUserRating() != null && movie.getUserRating() > 0)
+                .count();
+
+        MovieAnalyticsResponse analytics = MovieAnalyticsResponse.builder()
                 .totalMovies(allMovies.size())
                 .averageRating(Math.round(averageRating * 10.0) / 10.0)
                 .moviesPerGenre(moviesPerGenre)
-                .totalFavorites(0L) // You can calculate this from UserFavoriteRepository
+                .totalFavorites(totalFavorites)
                 .totalReviews(0L) // You can calculate this from MovieReviewRepository
-                .totalRatings(0L) // You can calculate this from UserRatingRepository
+                .totalRatings(totalRatings)
+                .cachedMoviesCount(cacheService.getCachedMoviesCount())
                 .build();
+
+        // Cache analytics in Hazelcast
+        cacheService.cacheAnalytics(analytics);
+
+        return analytics;
     }
 
     /**
@@ -337,16 +421,82 @@ public class MovieServiceImpl implements MovieService {
                 .runtime(entity.getRuntime())
                 .rating(entity.getRating())
                 .favorite(entity.getFavorite())
+                .userRating(entity.getUserRating())
                 .build();
     }
 
     /**
      * Additional features: search movies by title
      */
+    @Override
+    @Cacheable(value = "searchByTitle", key = "#title")
     public List<MovieDTO> searchMoviesByTitle(String title) {
         return movieRepository.findByTitleContainingIgnoreCase(title)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Refresh cache for a specific movie
+     */
+    @CacheEvict(value = { "movieDetails", "popularMovies", "keywordMovies", "searchResults" }, key = "#movieId")
+    public void refreshMovieCache(int movieId) {
+        // Evict from Hazelcast cache
+        cacheService.evictMovieFromCache(movieId);
+
+        // Re-fetch and cache the movie
+        MovieEntity movieEntity = movieRepository.findById(movieId)
+                .orElseGet(() -> fetchMovieEntity(movieId));
+
+        if (movieEntity != null) {
+            MovieDTO dto = toDTO(movieEntity);
+            cacheService.cacheMovieDetails(movieId, dto);
+        }
+    }
+
+    /**
+     * Clear all caches
+     */
+    @CacheEvict(value = { "movieDetails", "popularMovies", "keywordMovies", "searchResults", "searchByTitle",
+            "analytics" }, allEntries = true)
+    public void clearAllCaches() {
+        cacheService.clearAllCaches();
+    }
+
+    /**
+     * Update movie favorite status
+     */
+    @Transactional
+    @CacheEvict(value = { "movieDetails", "popularMovies", "analytics" }, key = "#movieId")
+    public void updateFavoriteStatus(int movieId, boolean isFavorite) {
+        MovieEntity movieEntity = movieRepository.findById(movieId)
+                .orElseGet(() -> fetchMovieEntity(movieId));
+
+        if (movieEntity != null) {
+            movieEntity.setFavorite(isFavorite);
+            movieRepository.save(movieEntity);
+
+            // Update cache
+            cacheService.cacheMovieDetails(movieId, toDTO(movieEntity));
+        }
+    }
+
+    /**
+     * Update user rating
+     */
+    @Transactional
+    @CacheEvict(value = { "movieDetails", "popularMovies", "analytics" }, key = "#movieId")
+    public void updateUserRating(int movieId, Double rating) {
+        MovieEntity movieEntity = movieRepository.findById(movieId)
+                .orElseGet(() -> fetchMovieEntity(movieId));
+
+        if (movieEntity != null) {
+            movieEntity.setUserRating(rating);
+            movieRepository.save(movieEntity);
+
+            // Update cache
+            cacheService.cacheMovieDetails(movieId, toDTO(movieEntity));
+        }
     }
 }

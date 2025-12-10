@@ -21,7 +21,15 @@ public interface MovieService {
     MovieDTO getMovieDetails(int movieId);
 
     MovieEntity fetchMovieEntity(int movieId);
-
+    
     MovieAnalyticsResponse getMovieAnalytics();
+
+    void refreshMovieCache(int movieId);
+
+    void clearAllCaches();
+
+    void updateFavoriteStatus(int movieId, boolean isFavorite);
+
+    void updateUserRating(int movieId, Double rating);
 
 }
